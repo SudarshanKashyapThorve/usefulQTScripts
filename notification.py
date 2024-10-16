@@ -26,6 +26,9 @@ class NotificationType:
 
 class Notifier(QWidget):
     def __init__(self, parent, message, notification_type=NotificationType.INFO, auto_hide=True, close_callback=None):
+        # Use QApplication's active window if parent is None
+        if parent is None:
+            parent = QApplication.activeWindow()
         super().__init__(parent)
 
         self.auto_hide = auto_hide
@@ -245,6 +248,9 @@ class Notifier(QWidget):
 class NotificationIcon(QWidget):
     """Widget to display a notification icon with the number of notifications."""
     def __init__(self, parent, notification_manager):
+        # Use QApplication's active window if parent is None
+        if parent is None:
+            parent = QApplication.activeWindow()
         super().__init__(parent)
         self.parent = parent
         self.notification_manager = notification_manager
@@ -317,6 +323,8 @@ class NotificationIcon(QWidget):
 
     def adjust_position(self):
         """Adjust the position of the icon."""
+        if not self.parent:
+            return
         main_window_pos = self.parent.mapToGlobal(QtCore.QPoint(0, 0))
         x = main_window_pos.x()
         y = main_window_pos.y()
@@ -345,6 +353,9 @@ class NotificationManager(QtCore.QObject):
 
     def __init__(self, parent=None, max_notifications=3, auto_hide=True):
         super().__init__(parent)
+        # Use QApplication's active window if parent is None
+        if parent is None:
+            parent = QApplication.activeWindow()
         self.parent = parent
         self.max_notifications = max_notifications
         self.auto_hide = auto_hide
@@ -363,10 +374,18 @@ class NotificationManager(QtCore.QObject):
     def get_instance(cls, parent=None):
         if cls._instance is None:
             cls._instance = cls(parent)
+        elif parent is not None and cls._instance.parent is None:
+            # Update the parent if it was previously None
+            cls._instance.parent = parent
+            cls._instance.notification_icon.setParent(parent)
+            cls._instance.notification_icon.parent = parent
+            cls._instance.notification_icon.adjust_position()
+            if cls._instance.parent is not None:
+                cls._instance.parent.installEventFilter(cls._instance)
         return cls._instance
 
     @classmethod
-    def show_notification(cls, parent, message, notification_type=NotificationType.INFO, auto_hide=True):
+    def show_notification(cls, message, notification_type=NotificationType.INFO, auto_hide=True, parent=None):
         """Class method to show a notification using the singleton instance."""
         instance = cls.get_instance(parent)
         instance.add_notification(message, notification_type, auto_hide)
@@ -525,7 +544,7 @@ if __name__ == '__main__':
             ]
             message = random.choice(sample_texts)
             notification_type = random.choice(notification_types)
-            NotificationManager.show_notification(window, message, notification_type, auto_hide=True)
+            NotificationManager.show_notification(message, notification_type, auto_hide=True)
 
         button.clicked.connect(on_button_clicked)
 
